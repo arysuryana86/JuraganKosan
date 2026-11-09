@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny-all catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "arykumara86@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ADMIN")
+      );
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity Validation Helpers
+    function isValidUser(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.nama is string && data.nama.size() >= 2 && data.nama.size() <= 100 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.role in ['ADMIN', 'PENGHUNI', 'INVESTOR'] &&
+             (!('nomorHp' in data) || (data.nomorHp is string && data.nomorHp.size() <= 30));
+    }
+
+    function isValidRoom(data) {
+      return data.nomorKamar is string && data.nomorKamar.size() <= 20 &&
+             data.tipeKamar is string && data.tipeKamar.size() <= 50 &&
+             data.hargaBulanan is int && data.hargaBulanan > 0 &&
+             data.status in ['TERSEDIA', 'TERISI', 'PERBAIKAN'] &&
+             data.lantai is int &&
+             (!('luasKamar' in data) || data.luasKamar is string) &&
+             (!('fasilitas' in data) || data.fasilitas is list) &&
+             (!('penghuniNama' in data) || data.penghuniNama == null || data.penghuniNama is string) &&
+             (!('penghuniHp' in data) || data.penghuniHp == null || data.penghuniHp is string);
+    }
+
+    function isValidInvoice(data) {
+      return data.roomNomor is string && data.roomNomor.size() <= 20 &&
+             data.penghuniNama is string && data.penghuniNama.size() <= 100 &&
+             data.nominalKamar is int && data.nominalKamar > 0 &&
+             data.totalTagihan is int && data.totalTagihan > 0 &&
+             data.bulanTagihan is string && data.bulanTagihan.size() <= 50 &&
+             data.statusPembayaran in ['BELUM_BAYAR', 'LUNAS', 'JATUH_TEMPO'] &&
+             (!('tambahanListrik' in data) || data.tambahanListrik is int) &&
+             (!('denda' in data) || data.denda is int) &&
+             (!('metodePembayaran' in data) || data.metodePembayaran is string) &&
+             (!('kodePembayaran' in data) || data.kodePembayaran is string) &&
+             (!('tanggalBayar' in data) || data.tanggalBayar is string) &&
+             (!('receiptNumber' in data) || data.receiptNumber is string);
+    }
+
+    function isValidExpense(data) {
+      return data.kategori is string && data.kategori.size() <= 50 &&
+             data.nominal is int && data.nominal > 0 &&
+             data.keterangan is string && data.keterangan.size() <= 300 &&
+             data.tanggal is string && data.tanggal.size() <= 50;
+    }
+
+    function isValidComplaint(data) {
+      return data.penghuniNama is string && data.penghuniNama.size() <= 100 &&
+             data.roomNomor is string && data.roomNomor.size() <= 20 &&
+             data.judulMasalah is string && data.judulMasalah.size() >= 3 && data.judulMasalah.size() <= 150 &&
+             data.deskripsiMasalah is string && data.deskripsiMasalah.size() <= 1000 &&
+             data.statusKomplain in ['MENUNGGU', 'DIPROSES', 'SELESAI'] &&
+             (!('kategori' in data) || data.kategori is string) &&
+             (!('catatanPerbaikan' in data) || data.catatanPerbaikan == null || data.catatanPerbaikan is string);
+    }
+
+    function isValidAnnouncement(data) {
+      return data.judul is string && data.judul.size() >= 3 && data.judul.size() <= 150 &&
+             data.isi is string && data.isi.size() >= 3 && data.isi.size() <= 2000 &&
+             data.prioritas in ['NORMAL', 'PENTING', 'DARURAT'] &&
+             (!('kategori' in data) || data.kategori is string) &&
+             (!('tanggal' in data) || data.tanggal is string);
+    }
+
+    function isValidInvestorShare(data) {
+      return data.investorNama is string && data.investorNama.size() <= 100 &&
+             data.investorEmail is string && data.investorEmail.size() <= 150 &&
+             data.rekeningBank is string && data.rekeningBank.size() <= 100 &&
+             (data.persentase is number || data.persentase is int) && data.persentase > 0;
+    }
+
+    // 1. Users collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data);
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 2. Rooms collection (Readable by authenticated users, manageable by Admin)
+    match /rooms/{roomId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidRoom(request.resource.data);
+    }
+
+    // 3. Invoices collection (Readable by Admin and respective tenant, updatable upon payment)
+    match /invoices/{invoiceId} {
+      allow get, list: if isSignedIn();
+      allow create, delete: if isAdmin() && isValidInvoice(request.resource.data);
+      allow update: if isSignedIn() && isValidInvoice(request.resource.data);
+    }
+
+    // 4. Expenses collection (Admin only for write, Investor/Admin can read)
+    match /expenses/{expenseId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidExpense(request.resource.data);
+    }
+
+    // 5. Complaints collection (Tenant creates, Admin/Tenant reads and updates status)
+    match /complaints/{complaintId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidComplaint(request.resource.data);
+      allow update: if isSignedIn() && isValidComplaint(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 6. Announcements collection (Readable by all signed in users, managed by Admin)
+    match /announcements/{announcementId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidAnnouncement(request.resource.data);
+    }
+
+    // 7. Investor Shares collection (Admin and Investors read, Admin manages)
+    match /investor_shares/{shareId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidInvestorShare(request.resource.data);
+    }
+  }
+}

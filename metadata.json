@@ -1,0 +1,6 @@
+{
+  "name": "KosConnect",
+  "description": "Aplikasi manajemen kosan modern untuk Pemilik Kos, Penghuni, dan Investor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

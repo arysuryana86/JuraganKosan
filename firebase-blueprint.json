@@ -1,0 +1,142 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing identity, role, and contact information.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Google Auth UID." },
+        "nama": { "type": "string", "description": "User full name." },
+        "email": { "type": "string", "format": "email", "description": "User email." },
+        "role": { "type": "string", "enum": ["ADMIN", "PENGHUNI", "INVESTOR"], "description": "User role." },
+        "nomorHp": { "type": "string", "description": "Phone number." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp via serverTimestamp." }
+      },
+      "required": ["userId", "nama", "email", "role", "createdAt"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Boarding house room details and occupancy status.",
+      "type": "object",
+      "properties": {
+        "nomorKamar": { "type": "string", "description": "Room number label." },
+        "tipeKamar": { "type": "string", "description": "Room type." },
+        "hargaBulanan": { "type": "integer", "description": "Monthly rate in Rupiah." },
+        "status": { "type": "string", "enum": ["TERSEDIA", "TERISI", "PERBAIKAN"], "description": "Occupancy status." },
+        "luasKamar": { "type": "string", "description": "Room dimension." },
+        "lantai": { "type": "integer", "description": "Floor number." },
+        "fasilitas": { "type": "array", "description": "List of amenities." },
+        "penghuniNama": { "type": "string", "description": "Current tenant name." },
+        "penghuniHp": { "type": "string", "description": "Tenant phone." },
+        "tanggalMasuk": { "type": "string", "description": "Check-in date." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." }
+      },
+      "required": ["nomorKamar", "tipeKamar", "hargaBulanan", "status", "lantai"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Monthly billing record for tenants.",
+      "type": "object",
+      "properties": {
+        "roomNomor": { "type": "string", "description": "Target room number." },
+        "penghuniNama": { "type": "string", "description": "Tenant name." },
+        "nominalKamar": { "type": "integer", "description": "Base room rate." },
+        "tambahanListrik": { "type": "integer", "description": "Additional utility costs." },
+        "denda": { "type": "integer", "description": "Late payment penalty." },
+        "totalTagihan": { "type": "integer", "description": "Sum of all charges." },
+        "bulanTagihan": { "type": "string", "description": "Billing month label." },
+        "tanggalJatuhTempo": { "type": "string", "description": "Due date." },
+        "statusPembayaran": { "type": "string", "enum": ["BELUM_BAYAR", "LUNAS", "JATUH_TEMPO"], "description": "Invoice status." },
+        "metodePembayaran": { "type": "string", "description": "Payment channel (BCA_VA, MANDIRI_VA, QRIS, MANUAL)." },
+        "kodePembayaran": { "type": "string", "description": "Payment reference or VA code." },
+        "tanggalBayar": { "type": "string", "description": "Date paid." },
+        "receiptNumber": { "type": "string", "description": "Digital receipt number." }
+      },
+      "required": ["roomNomor", "penghuniNama", "nominalKamar", "totalTagihan", "bulanTagihan", "statusPembayaran"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Operational expense record for boarding house.",
+      "type": "object",
+      "properties": {
+        "kategori": { "type": "string", "description": "Expense category." },
+        "nominal": { "type": "integer", "description": "Expense amount." },
+        "keterangan": { "type": "string", "description": "Description of expense." },
+        "tanggal": { "type": "string", "description": "Expense date." },
+        "pencatatNama": { "type": "string", "description": "Admin author." }
+      },
+      "required": ["kategori", "nominal", "keterangan", "tanggal"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Maintenance ticket submitted by tenant.",
+      "type": "object",
+      "properties": {
+        "penghuniNama": { "type": "string", "description": "Tenant reporting." },
+        "roomNomor": { "type": "string", "description": "Room number." },
+        "judulMasalah": { "type": "string", "description": "Title of issue." },
+        "deskripsiMasalah": { "type": "string", "description": "Detailed description." },
+        "kategori": { "type": "string", "description": "Facility category." },
+        "statusKomplain": { "type": "string", "enum": ["MENUNGGU", "DIPROSES", "SELESAI"], "description": "Resolution status." },
+        "createdAt": { "type": "string", "description": "Submission time." },
+        "catatanPerbaikan": { "type": "string", "description": "Admin resolution note." }
+      },
+      "required": ["penghuniNama", "roomNomor", "judulMasalah", "deskripsiMasalah", "statusKomplain"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Broadcast notice to all boarding house tenants.",
+      "type": "object",
+      "properties": {
+        "judul": { "type": "string", "description": "Headline." },
+        "isi": { "type": "string", "description": "Announcement body." },
+        "tanggal": { "type": "string", "description": "Publish date." },
+        "prioritas": { "type": "string", "enum": ["NORMAL", "PENTING", "DARURAT"], "description": "Urgency." },
+        "kategori": { "type": "string", "description": "Category tag." }
+      },
+      "required": ["judul", "isi", "prioritas"]
+    },
+    "InvestorShare": {
+      "title": "InvestorShare",
+      "description": "Shareholding ratio for net profit distribution.",
+      "type": "object",
+      "properties": {
+        "investorNama": { "type": "string", "description": "Investor name." },
+        "investorEmail": { "type": "string", "format": "email", "description": "Investor email." },
+        "rekeningBank": { "type": "string", "description": "Bank account number." },
+        "persentase": { "type": "number", "description": "Ownership percentage." }
+      },
+      "required": ["investorNama", "investorEmail", "rekeningBank", "persentase"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and role metadata."
+    },
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/Room" },
+      "description": "Kos rooms catalog and occupancy."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/Invoice" },
+      "description": "Monthly rental invoices."
+    },
+    "/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Kos operational expenses."
+    },
+    "/complaints/{complaintId}": {
+      "schema": { "$ref": "#/entities/Complaint" },
+      "description": "Facility repair requests."
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Public notices and house rules."
+    },
+    "/investor_shares/{shareId}": {
+      "schema": { "$ref": "#/entities/InvestorShare" },
+      "description": "Capital ownership distribution."
+    }
+  }
+}
