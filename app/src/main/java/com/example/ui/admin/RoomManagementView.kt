@@ -32,6 +32,7 @@ import com.example.data.model.Room
 import com.example.data.model.RoomStatus
 import com.example.data.repository.KosRepository
 import com.example.ui.KosViewModel
+import com.example.ui.components.TenancyAgreementDialog
 import com.example.ui.theme.*
 
 enum class RoomSortOption(val label: String) {
@@ -59,6 +60,7 @@ fun RoomManagementView(
     var roomToEdit by remember { mutableStateOf<Room?>(null) }
     var roomToDeleteConfirm by remember { mutableStateOf<Room?>(null) }
     var roomToCheckOutConfirm by remember { mutableStateOf<Room?>(null) }
+    var agreementRoomForDialog by remember { mutableStateOf<Room?>(null) }
 
     // Filter & Sort Logic
     val processedRooms = remember(rooms, searchQuery, selectedFilter, selectedSort) {
@@ -338,7 +340,19 @@ fun RoomManagementView(
                 val r = selectedRoomForDetail!!
                 selectedRoomForDetail = null
                 roomToDeleteConfirm = r
+            },
+            onViewAgreement = {
+                agreementRoomForDialog = selectedRoomForDetail
             }
+        )
+    }
+
+    // Modal: Surat Perjanjian Sewa Digital
+    if (agreementRoomForDialog != null) {
+        val agreement = viewModel.getAgreementForRoom(agreementRoomForDialog!!.nomorKamar)
+        TenancyAgreementDialog(
+            agreement = agreement,
+            onDismiss = { agreementRoomForDialog = null }
         )
     }
 
@@ -650,7 +664,8 @@ fun RoomDetailBottomSheet(
     onCheckOut: () -> Unit,
     onEdit: () -> Unit,
     onToggleRepair: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onViewAgreement: () -> Unit = {}
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -795,6 +810,17 @@ fun RoomDetailBottomSheet(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
             } else if (room.status == RoomStatus.TERISI) {
+                OutlinedButton(
+                    onClick = onViewAgreement,
+                    modifier = Modifier.fillMaxWidth().height(48.dp).testTag("btn_room_agreement_${room.nomorKamar}"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Description, contentDescription = null, tint = KosBluePrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Surat Perjanjian Sewa Digital (PDF)", color = KosBluePrimary, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+
                 OutlinedButton(
                     onClick = onCheckOut,
                     modifier = Modifier.fillMaxWidth().height(48.dp),

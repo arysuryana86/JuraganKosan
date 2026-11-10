@@ -291,5 +291,36 @@ class ExampleUnitTest {
         val totalPast = pastWithdrawals.sumOf { it.nominal }
         assertTrue(totalPast > 10000000L)
     }
+
+    @Test
+    fun `tenancy agreement for room 101 contains complete legal clauses and digital signatures`() {
+        val repo = KosRepository()
+        val agreement = repo.getAgreementForRoom("101")
+        assertNotNull("Surat Perjanjian Kamar 101 harus tersedia", agreement)
+        assertEquals("101", agreement?.roomNomor)
+        assertEquals("Ahmad Pratama", agreement?.pihakKeduaNama)
+        assertEquals("Budi Prakoso", agreement?.pihakPertamaNama)
+        assertEquals(com.example.data.model.AgreementStatus.AKTIF, agreement?.status)
+        assertTrue(agreement?.nomorSurat?.contains("SP-KOS") == true)
+        assertTrue(agreement?.fasilitas?.isNotEmpty() == true)
+        assertTrue(agreement?.digitalSignatureHash?.isNotBlank() == true)
+        assertTrue(agreement?.meteraiDigitalSerial?.isNotBlank() == true)
+    }
+
+    @Test
+    fun `check in tenant auto-generates digital tenancy agreement`() {
+        val repo = KosRepository()
+        val availableRoom = repo.rooms.value.first { it.status == RoomStatus.TERSEDIA }
+
+        repo.checkInTenant(availableRoom.id, "Bambang Pamungkas", "081299118822", 600000L)
+
+        val agreement = repo.getAgreementForRoom(availableRoom.nomorKamar)
+        assertNotNull(agreement)
+        assertEquals(availableRoom.nomorKamar, agreement?.roomNomor)
+        assertEquals("Bambang Pamungkas", agreement?.pihakKeduaNama)
+        assertEquals("081299118822", agreement?.pihakKeduaHp)
+        assertEquals(600000L, agreement?.depositJaminan)
+        assertEquals(availableRoom.hargaSewaDasar, agreement?.hargaSewaBulanan)
+    }
 }
 

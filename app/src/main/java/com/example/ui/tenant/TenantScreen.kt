@@ -36,7 +36,9 @@ import com.example.ui.admin.DigitalReceiptDialog
 import com.example.ui.components.ImagePreviewDialog
 import com.example.ui.components.NotificationPermissionBanner
 import com.example.ui.components.PhotoUploadPicker
+import com.example.ui.components.TenancyAgreementDialog
 import com.example.ui.theme.*
+import com.example.util.ReportExportService
 
 // PORTAL PENGHUNI MANDIRI (Role-Based View: Tenant)
 @Composable
@@ -55,11 +57,14 @@ fun TenantScreen(
         ?: invoices.first()
     val pastInvoices = roomInvoices.filter { it.id != myInvoice.id }
     val myComplaints = complaints.filter { it.roomNomor == "101" }
+    val agreements by viewModel.agreements.collectAsState()
+    val myAgreement = agreements.firstOrNull { it.roomNomor == "101" } ?: viewModel.getAgreementForRoom("101")
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedPaymentMethod by remember { mutableStateOf(PaymentMethod.BCA_VA) }
     var showPaymentModal by remember { mutableStateOf(false) }
     var selectedInvoiceForReceipt by remember { mutableStateOf<Invoice?>(null) }
+    var showAgreementDialog by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
 
     // Image preview state
@@ -168,8 +173,10 @@ fun TenantScreen(
         when (selectedTab) {
             0 -> TenantLeaseStatusTab(
                 invoice = myInvoice,
+                agreement = myAgreement,
                 onNavigateToPay = { selectedTab = 1 },
-                onViewReceipt = { selectedInvoiceForReceipt = myInvoice }
+                onViewReceipt = { selectedInvoiceForReceipt = myInvoice },
+                onOpenAgreement = { showAgreementDialog = true }
             )
             1 -> TenantBillingTab(
                 invoice = myInvoice,
@@ -234,6 +241,14 @@ fun TenantScreen(
         )
     }
 
+    // Modal Surat Perjanjian Sewa Digital (E-Agreement)
+    if (showAgreementDialog) {
+        TenancyAgreementDialog(
+            agreement = myAgreement,
+            onDismiss = { showAgreementDialog = false }
+        )
+    }
+
     // Modal Report Complaint
     if (showReportDialog) {
         TenantReportDialog(
@@ -267,9 +282,12 @@ fun TenantScreen(
 @Composable
 private fun TenantLeaseStatusTab(
     invoice: Invoice,
+    agreement: TenancyAgreement,
     onNavigateToPay: () -> Unit,
-    onViewReceipt: () -> Unit
+    onViewReceipt: () -> Unit,
+    onOpenAgreement: () -> Unit
 ) {
+    val context = LocalContext.current
     val isPaid = invoice.statusPembayaran == PaymentStatus.LUNAS
 
     LazyColumn(
@@ -494,7 +512,116 @@ private fun TenantLeaseStatusTab(
             }
         }
 
-        // 3. Fasilitas Kamar & Keuntungan Penghuni
+        // 3. Surat Perjanjian Sewa Digital (E-Agreement)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = KosWhite),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(KosBlueContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = KosBluePrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Surat Perjanjian Sewa Digital",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = KosTextPrimary
+                                )
+                                Text(
+                                    text = "No: ${agreement.nomorSurat}",
+                                    fontSize = 11.sp,
+                                    color = KosTextSecondary
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(KosSuccessContainer)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "SAH & BERLAKU",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = KosSuccess
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Dokumen hukum resmi sewa kamar kost dengan tanda tangan digital dan meterai elektronik yang sah mengikat antara Anda dan pengelola kos.",
+                        fontSize = 12.sp,
+                        color = KosTextSecondary,
+                        lineHeight = 17.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onOpenAgreement,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("btn_view_agreement")
+                        ) {
+                            Icon(Icons.Default.Visibility, contentDescription = null, tint = KosBluePrimary, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Buka Dokumen", fontSize = 12.sp, color = KosBluePrimary, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                val pdfFile = ReportExportService.generateTenancyAgreementPdf(context, agreement)
+                                ReportExportService.openFile(context, pdfFile, "application/pdf")
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = KosBluePrimary),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("btn_download_agreement_pdf")
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = KosWhite, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Unduh PDF", fontSize = 12.sp, color = KosWhite, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Fasilitas Kamar & Keuntungan Penghuni
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
